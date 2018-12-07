@@ -12,6 +12,7 @@ http://grrrr.org/nsgt
 import numpy as np
 import os
 from warnings import warn
+from argparse import ArgumentParser
 
 from nsgt import NSGT_sliced, LogScale, LinScale, MelScale, OctScale, SndReader
 
@@ -19,29 +20,40 @@ from nsgt import NSGT_sliced, LogScale, LinScale, MelScale, OctScale, SndReader
 def assemble_coeffs(cqt, ncoefs):
     """
     Build a sequence of blocks out of incoming overlapping CQT slices
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+
     """
+
+    # import pdb
+    # pdb.set_trace()
+
     cqt = iter(cqt)
     cqt0 = next(cqt)
     cq0 = np.asarray(cqt0).T
-    shh = cq0.shape[0]//2
-    out = np.empty((ncoefs,cq0.shape[1],cq0.shape[2]), dtype=cq0.dtype)
-    
+    shh = cq0.shape[0] // 2
+    out = np.empty((ncoefs, cq0.shape[1], cq0.shape[2]), dtype=cq0.dtype)
+    # out = np.empty((ncoefs, cq0.shape[0], cq0.shape[1]), dtype=cq0.dtype)
+
     fr = 0
-    sh = max(0, min(shh, ncoefs-fr))
-    out[fr:fr+sh] = cq0[sh:] # store second half
+    sh = max(0, min(shh, ncoefs - fr))
+    out[fr:fr + sh] = cq0[sh:]  # store second half
     # add up slices
     for cqi in cqt:
         cqi = np.asarray(cqi).T
-        out[fr:fr+sh] += cqi[:sh]
+        out[fr:fr + sh] += cqi[:sh]
         cqi = cqi[sh:]
         fr += sh
-        sh = max(0, min(shh, ncoefs-fr))
-        out[fr:fr+sh] = cqi[:sh]
-        
+        sh = max(0, min(shh, ncoefs - fr))
+        out[fr:fr + sh] = cqi[:sh]
+
     return out[:fr]
 
 
-from argparse import ArgumentParser
 parser = ArgumentParser()
 
 parser.add_argument("input", type=str, help="Input file")
@@ -83,9 +95,9 @@ except KeyError:
 
 scl = scale(args.fmin, args.fmax, args.bins, beyond=int(args.reducedform == 2))
 
-slicq = NSGT_sliced(scl, args.sllen, args.trlen, fs, 
-                    real=args.real, recwnd=args.recwnd, 
-                    matrixform=args.matrixform, reducedform=args.reducedform, 
+slicq = NSGT_sliced(scl, args.sllen, args.trlen, fs,
+                    real=args.real, recwnd=args.recwnd,
+                    matrixform=args.matrixform, reducedform=args.reducedform,
                     multithreading=args.multithreading,
                     multichannel=True
                     )
@@ -133,7 +145,7 @@ mls_dur = len(mls)/fs_coef # final duration of MLS
 if args.fps:
     # pool features in time
     coefs_per_sec = fs*slicq.coef_factor
-    poolf = int(coefs_per_sec/args.fps+0.5) # pooling factor
+    poolf = int(coefs_per_sec/args.fps+0.5)  # pooling factor
     pooled_len = mls.shape[0]//poolf
     mls_dur *= (pooled_len*poolf)/float(len(mls))
     mls = mls[:pooled_len*poolf]
@@ -150,7 +162,7 @@ if args.output:
     else:
         frqs = slicq.frqs
         qs = slicq.q
-    
+
     data = {args.data_coefs: mls, args.data_times: times, args.data_frqs: frqs, args.data_qs: qs}
     if args.output.endswith('.pkl') or args.output.endswith('.pck'):
         import pickle
@@ -161,7 +173,7 @@ if args.output:
     elif args.output.endswith('.hdf5') or args.output.endswith('.h5'):
         import h5py
         with h5py.File(args.output, 'w') as f:
-            for k,v in data.items():
+            for k, v in data.items():
                 f[k] = v
     else:
         warn("Output file format not supported, skipping output.")
